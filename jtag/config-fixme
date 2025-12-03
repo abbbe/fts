@@ -1,0 +1,50 @@
+# PlatformIO environment names
+PIO_ENV_MASTER=master
+PIO_ENV_SLAVE=slave
+
+# ESP32-S3 USB JTAG serial numbers (use lsusb -v -d 303a:1001 to find these)
+
+## XIAO S3 (the broken one)
+SERIAL_XIAO_S3_1="B8:F8:62:F9:F3:08"
+## XIAO S3 (the black cube)
+SERIAL_XIAO_S3_2="B8:F8:62:F9:F7:50"
+
+## S3 OLED modules from Amazon
+SERIAL_OLED_S3_1="10:20:BA:46:6B:28"
+SERIAL_OLED_S3_2="10:20:BA:46:6B:98"
+
+SERIAL_MASTER=$SERIAL_XIAO_S3_1
+#SERIAL_MASTER=$SERIAL_XIAO_S3_2
+SERIAL_SLAVE_1=$SERIAL_OLED_S3_1
+SERIAL_SLAVE_2=$SERIAL_OLED_S3_2
+
+SERIAL_PORT_FMT=/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_%SERIAL%-if00
+
+# Generate serial port paths from format string (replace colons with underscores)
+SERIAL_PORT_MASTER=${SERIAL_PORT_FMT/\%SERIAL\%/${SERIAL_MASTER}}
+SERIAL_PORT_SLAVE_1=${SERIAL_PORT_FMT/\%SERIAL\%/${SERIAL_SLAVE_1}}
+SERIAL_PORT_SLAVE_2=${SERIAL_PORT_FMT/\%SERIAL\%/${SERIAL_SLAVE_2}}
+
+# Backward compatibility: SERIAL_PORT_SLAVE points to slave 1
+SERIAL_PORT_SLAVE=$SERIAL_PORT_SLAVE_1
+
+# OpenOCD/GDB port assignments (allows debugging multiple devices simultaneously)
+# Master ports: GDB=3333, TCL=6666, Telnet=4444
+# Slave 1 ports: GDB=3334, TCL=6667, Telnet=4445
+# Slave 2 ports: GDB=3335, TCL=6668, Telnet=4446
+GDB_PORT_MASTER=3333
+TCL_PORT_MASTER=6666
+TELNET_PORT_MASTER=4444
+
+GDB_PORT_SLAVE_1=3334
+TCL_PORT_SLAVE_1=6667
+TELNET_PORT_SLAVE_1=4445
+
+GDB_PORT_SLAVE_2=3335
+TCL_PORT_SLAVE_2=6668
+TELNET_PORT_SLAVE_2=4446
+
+# Backward compatibility: SLAVE ports point to slave 1
+GDB_PORT_SLAVE=$GDB_PORT_SLAVE_1
+TCL_PORT_SLAVE=$TCL_PORT_SLAVE_1
+TELNET_PORT_SLAVE=$TELNET_PORT_SLAVE_1

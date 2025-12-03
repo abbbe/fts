@@ -1,0 +1,8 @@
+pyserial
+jupyterlab
+pandas
+numpy
+matplotlib
+seaborn
+scipy
+allantools

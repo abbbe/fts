@@ -1,0 +1,7 @@
+# ESP-IDF setup
+ESP_IDF_EXPORT=~/esp/esp-idf/export.sh
+
+# --- map the dev boards to roles ---
+SERIAL_PORT_MASTER=/dev/cu.usbmodem11101
+SERIAL_PORT_SLAVE_1=/dev/cu.usbmodem11201
+SERIAL_PORT_SLAVE_2=/dev/cu.usbmodem11301

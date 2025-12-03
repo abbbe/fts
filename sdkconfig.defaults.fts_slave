@@ -1,0 +1,2 @@
+# Time Sync Configuration - SLAVE role
+CONFIG_FTS_ROLE_SLAVE=y

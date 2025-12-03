@@ -1,0 +1,6 @@
+BUILDDIR_MASTER=build_master
+BUILDDIR_SLAVE=build_slave
+
+# include config.local file in the same directory
+_config_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+source "$_config_dir/config.local"

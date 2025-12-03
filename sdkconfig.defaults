@@ -1,0 +1,19 @@
+CONFIG_IDF_TARGET="esp32s3"
+
+# Enable FTM support
+CONFIG_ESP_WIFI_FTM_ENABLE=y
+
+# Disable FTM report logging (not needed for time sync)
+CONFIG_ESP_FTM_REPORT_LOG_ENABLE=n
+
+# CPU frequency - 240MHz for maximum performance and precise timing
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=240
+
+# FreeRTOS tick rate - 1000Hz (1ms resolution) for better timestamp precision
+CONFIG_FREERTOS_HZ=1000
+
+# --- TEST ---
+# CONFIG_FTS_MAC_TIMER_ALIGNMENT_TEST_CYCLES=100
+#CONFIG_FTS_TEST_ALIGN_ONCE=y
+CONFIG_FTS_CSV_OUTPUT=y

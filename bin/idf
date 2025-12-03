@@ -1,0 +1,247 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+. bin/config
+
+# Parse parameters
+DO_CLEAN=false
+DO_BUILD=false
+DO_FLASH=false
+DO_MONITOR=false
+TARGETS=()
+
+# If no actions specified, default to build
+if [[ $# -eq 0 ]]; then
+    DO_BUILD=true
+fi
+
+# Parse arguments
+for arg in "$@"; do
+    case "$arg" in
+        clean)
+            DO_CLEAN=true
+            ;;
+        build)
+            DO_BUILD=true
+            ;;
+        flash)
+            DO_FLASH=true
+            ;;
+        monitor)
+            DO_MONITOR=true
+            ;;
+        master|slave|slave1|slave2|all-slaves|all|both)
+            TARGETS+=("$arg")
+            ;;
+        *)
+            echo "Unknown argument: $arg"
+            echo "Usage: $0 [clean] [build] [flash] [monitor] [targets...]"
+            echo "  Actions: clean, build, flash, monitor (can specify multiple)"
+            echo "  Targets (can specify multiple):"
+            echo "    master      - Master device only"
+            echo "    slave       - Slave firmware (build) or slave1 (flash/monitor)"
+            echo "    slave1      - Slave 1 only"
+            echo "    slave2      - Slave 2 only"
+            echo "    all-slaves  - All slave devices"
+            echo "    all         - All devices (master + all slaves) [default]"
+            echo "    both        - Alias for 'all' (backward compatible)"
+            echo "  If no actions specified, defaults to 'build'"
+            echo "  If no targets specified, defaults to 'all'"
+            exit 1
+            ;;
+    esac
+done
+
+# Default to 'all' if no targets specified
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+    TARGETS=("all")
+fi
+
+# Helper to check if a target is in the list
+has_target() {
+    local check="$1"
+    for t in "${TARGETS[@]}"; do
+        [[ "$t" == "$check" ]] && return 0
+    done
+    return 1
+}
+
+# Expand 'both' to 'all'
+for i in "${!TARGETS[@]}"; do
+    [[ "${TARGETS[$i]}" == "both" ]] && TARGETS[$i]="all"
+done
+
+cd "$PROJECT_DIR"
+
+# Determine which firmware types are needed
+NEED_MASTER=false
+NEED_SLAVE=false
+
+if has_target "all" || has_target "master"; then
+    NEED_MASTER=true
+fi
+if has_target "all" || has_target "all-slaves" || has_target "slave" || has_target "slave1" || has_target "slave2"; then
+    NEED_SLAVE=true
+fi
+
+# Function to clean/build a firmware type
+build_firmware() {
+    local fw_type=$1  # "master" or "slave"
+    local build_dir sdkconfig_defaults
+
+    if [[ "$fw_type" == "master" ]]; then
+        build_dir="$BUILDDIR_MASTER"
+        sdkconfig_defaults="sdkconfig.defaults;sdkconfig.defaults.fts_master"
+    else
+        build_dir="$BUILDDIR_SLAVE"
+        sdkconfig_defaults="sdkconfig.defaults;sdkconfig.defaults.fts_slave"
+    fi
+
+    echo ""
+    echo "========== $(echo "$fw_type" | tr '[:lower:]' '[:upper:]') FIRMWARE =========="
+
+    . $ESP_IDF_EXPORT > /dev/null 2>&1
+
+    if [[ "$DO_CLEAN" == true ]]; then
+        echo "Cleaning ${fw_type} firmware..."
+        idf.py -B $build_dir fullclean
+    fi
+
+    if [[ "$DO_BUILD" == true ]]; then
+        echo "Building ${fw_type} firmware..."
+        idf.py -B $build_dir -D SDKCONFIG_DEFAULTS="$sdkconfig_defaults" build
+    fi
+}
+
+# Function to flash a device
+flash_device() {
+    local device_name=$1
+    local build_dir=$2
+    local serial_port=$3
+
+    echo ""
+    echo "---------- Flashing $device_name to $serial_port ----------"
+
+    . $ESP_IDF_EXPORT > /dev/null 2>&1
+    idf.py -B $build_dir -p "$serial_port" flash
+}
+
+# Phase 1: Clean/Build firmware (once per firmware type)
+if [[ "$DO_CLEAN" == true || "$DO_BUILD" == true ]]; then
+    if [[ "$NEED_MASTER" == true ]]; then
+        build_firmware "master"
+    fi
+    if [[ "$NEED_SLAVE" == true ]]; then
+        build_firmware "slave"
+    fi
+fi
+
+# Phase 2: Flash to devices
+if [[ "$DO_FLASH" == true ]]; then
+    # Flash master
+    if has_target "all" || has_target "master"; then
+        flash_device "MASTER" "$BUILDDIR_MASTER" "$SERIAL_PORT_MASTER"
+    fi
+
+    # Flash slave devices
+    if has_target "all" || has_target "all-slaves" || has_target "slave" || has_target "slave1"; then
+        flash_device "SLAVE 1" "$BUILDDIR_SLAVE" "$SERIAL_PORT_SLAVE_1"
+    fi
+    if has_target "all" || has_target "all-slaves" || has_target "slave2"; then
+        flash_device "SLAVE 2" "$BUILDDIR_SLAVE" "$SERIAL_PORT_SLAVE_2"
+    fi
+fi
+
+# Phase 3: Monitor
+if [[ "$DO_MONITOR" == true ]]; then
+    echo ""
+    # Determine which devices to monitor
+    MON_MASTER=false
+    MON_SLAVE1=false
+    MON_SLAVE2=false
+
+    if has_target "all"; then
+        MON_MASTER=true; MON_SLAVE1=true; MON_SLAVE2=true
+    else
+        has_target "master" && MON_MASTER=true
+        if has_target "all-slaves"; then
+            MON_SLAVE1=true; MON_SLAVE2=true
+        else
+            (has_target "slave" || has_target "slave1") && MON_SLAVE1=true
+            has_target "slave2" && MON_SLAVE2=true
+        fi
+    fi
+
+    # Count monitors needed
+    MON_COUNT=0
+    $MON_MASTER && ((MON_COUNT++)) || true
+    $MON_SLAVE1 && ((MON_COUNT++)) || true
+    $MON_SLAVE2 && ((MON_COUNT++)) || true
+
+    if [[ $MON_COUNT -eq 0 ]]; then
+        echo "No devices selected for monitoring"
+    elif [[ $MON_COUNT -eq 1 ]]; then
+        # Single monitor - no tmux needed
+        if $MON_MASTER; then
+            echo "Monitoring MASTER..."
+            . $ESP_IDF_EXPORT > /dev/null 2>&1
+            idf.py -B $BUILDDIR_MASTER -p $SERIAL_PORT_MASTER monitor
+        elif $MON_SLAVE1; then
+            echo "Monitoring SLAVE 1..."
+            . $ESP_IDF_EXPORT > /dev/null 2>&1
+            idf.py -B $BUILDDIR_SLAVE -p $SERIAL_PORT_SLAVE_1 monitor
+        elif $MON_SLAVE2; then
+            echo "Monitoring SLAVE 2..."
+            . $ESP_IDF_EXPORT > /dev/null 2>&1
+            idf.py -B $BUILDDIR_SLAVE -p $SERIAL_PORT_SLAVE_2 monitor
+        fi
+    else
+        # Multiple monitors - use tmux
+        echo "Opening $MON_COUNT monitors in tmux..."
+        tmux kill-session -t fts_monitor 2>/dev/null || true
+        tmux new-session -d -s fts_monitor -x 200 -y 50
+
+        FIRST_PANE=true
+
+        if $MON_MASTER; then
+            if $FIRST_PANE; then
+                FIRST_PANE=false
+            else
+                tmux split-window -t fts_monitor -v
+            fi
+            tmux send-keys -t fts_monitor \
+                "cd '$PROJECT_DIR' && source $ESP_IDF_EXPORT && idf.py -B $BUILDDIR_MASTER -p $SERIAL_PORT_MASTER monitor" C-m
+        fi
+
+        if $MON_SLAVE1; then
+            if $FIRST_PANE; then
+                FIRST_PANE=false
+            else
+                tmux split-window -t fts_monitor -v
+            fi
+            tmux send-keys -t fts_monitor \
+                "cd '$PROJECT_DIR' && source $ESP_IDF_EXPORT && idf.py -B $BUILDDIR_SLAVE -p $SERIAL_PORT_SLAVE_1 monitor" C-m
+        fi
+
+        if $MON_SLAVE2; then
+            if $FIRST_PANE; then
+                FIRST_PANE=false
+            else
+                tmux split-window -t fts_monitor -v
+            fi
+            tmux send-keys -t fts_monitor \
+                "cd '$PROJECT_DIR' && source $ESP_IDF_EXPORT && idf.py -B $BUILDDIR_SLAVE -p $SERIAL_PORT_SLAVE_2 monitor" C-m
+        fi
+
+        # Balance panes and attach
+        tmux select-layout -t fts_monitor even-vertical
+        tmux select-pane -t fts_monitor:0.0
+        tmux attach-session -t fts_monitor
+    fi
+else
+    echo ""
+    echo "Done!"
+fi

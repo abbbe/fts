@@ -1,0 +1,85 @@
+menu "Time Synchronization Configuration"
+
+    choice FTS_ROLE
+        prompt "Device Role"
+        default FTS_ROLE_MASTER
+        help
+            Select whether this device is master or slave.
+            Master: Runs as AP with FTM responder
+            Slave: Connects to master and synchronizes
+
+        config FTS_ROLE_MASTER
+            bool "Master (AP)"
+        config FTS_ROLE_SLAVE
+            bool "Slave (STA)"
+    endchoice
+
+    config FTS_ENABLE_GPIO
+        bool "Enable GPIO Synchronization (requires MCPWM)"
+        default y
+        depends on SOC_MCPWM_SUPPORTED
+        help
+            Enable synchronized GPIO toggling using MCPWM peripheral.
+            Requires chip with MCPWM support (ESP32-S3, not ESP32-C3).
+
+    config FTS_CSV_OUTPUT
+        bool "Enable CSV Debug Output"
+        default n
+        help
+            Enable CSV-formatted debug output for FTM and CRM data.
+            Useful for plotting and analysis, but clutters console.
+            Output format: FTM_UNWRAP,... and REGR,...
+
+    config FTS_MAC_TIMER_ALIGNMENT_TEST_CYCLES
+        int "Number of Test Cycles"
+        default 0
+        range 0 1000000
+        help
+            If not zero, enables test mode for MAC timer alignment measurement.
+            Device will measure MAC clock alignment and output results as CSV.
+            It will make given number of cycles and reboot.
+            Useful for automated testing and validation.
+
+    config FTS_TEST_ALIGN_ONCE
+        bool "Test Mode: Initial Alignment Only (No Re-alignment)"
+        default n
+        depends on FTS_ROLE_SLAVE
+        help
+            When enabled, slave performs initial alignment only and never re-aligns.
+            This tests how well the initial alignment routine works without continuous
+            corrections from subsequent FTM measurements. Useful for validating
+            alignment accuracy and clock stability.
+
+    menu "Common Configuration"
+        config FTS_AP_SSID
+            string "AP SSID"
+            default "FTMS_MASTER"
+            help
+                SSID of the master AP
+
+        config FTS_AP_PASSWORD
+            string "AP Password"
+            default "Ahche0illa5ooJoh"
+            help
+                Password for the master AP (min 8 characters)
+
+        config FTS_MIN_PERIOD_CPU_CYCLES
+            int "Minimum timer period in CPU cycles"
+            default 5000
+            range 1000 50000
+            help
+                Minimum timer period to prevent race conditions.
+                Should be enough for ISR + user callback execution.
+                At 240MHz CPU, 5000 cycles = 21us = 833 ticks at 40MHz timer.
+    endmenu
+    
+    menu "Master Configuration"
+        config FTS_AP_CHANNEL
+            int "AP Channel"
+            default 1
+            range 1 13
+            help
+                WiFi channel for master AP
+    endmenu
+
+endmenu

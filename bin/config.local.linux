@@ -1,0 +1,26 @@
+# ESP-IDF setup
+ESP_IDF_EXPORT=~/esp/esp-idf/export.sh
+
+# --- define serial numbers of all dev boards you have ---
+# can use `lsusb -v -d 303a:1001` to find these
+
+## Seeed XIAO ESP32-S3 Sense
+SERIAL_XIAO_S3_1="B8:F8:62:F9:F3:08"
+SERIAL_XIAO_S3_2="B8:F8:62:F9:F7:50"
+
+## WaveWaveshare ESP32-S3 Touch Screen 1.47
+SERIAL_OLED_S3_1="10:20:BA:46:6B:28"
+SERIAL_OLED_S3_2="10:20:BA:46:6B:98"
+
+# --- map the dev boards to roles ---
+SERIAL_MASTER=$SERIAL_XIAO_S3_1
+#SERIAL_MASTER=$SERIAL_XIAO_S3_2
+SERIAL_SLAVE_1=$SERIAL_OLED_S3_1
+SERIAL_SLAVE_2=$SERIAL_OLED_S3_2
+
+SERIAL_PORT_FMT=/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_%SERIAL%-if00
+
+# Generate serial port paths from format string (replace colons with underscores)
+SERIAL_PORT_MASTER=${SERIAL_PORT_FMT/\%SERIAL\%/${SERIAL_MASTER}}
+SERIAL_PORT_SLAVE_1=${SERIAL_PORT_FMT/\%SERIAL\%/${SERIAL_SLAVE_1}}
+SERIAL_PORT_SLAVE_2=${SERIAL_PORT_FMT/\%SERIAL\%/${SERIAL_SLAVE_2}}

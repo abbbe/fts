@@ -1,4 +1,6 @@
-Fine Time Sync is a library to build synchronised, high-precision timing network using off-the-shelf ESP32 boards, using nothing but its built in Wi-Fi Fine Timing Measurement (FTM) system.
+Fine Time Sync is a library to build synchronised, high-precision timing network using off-the-shelf ESP32 boards, using nothing but its built in Wi-Fi Fine Timing Measurement (FTM) system. It delivers two main components:
+ * Clock Relationship Model - slaves build and maintain a (linear regression based) model of relationships between the local and remote clocks,
+ * Disciplined Timer - slaves fine-tunes (with 25ns granularity) the period of the its local timer to make it fire in sync with the master (<100ns jitter).
 
 The **technical implementation details** are in https://github.com/abbbe/fts/blob/main/docs/fts-presa-20251203.pdf. Feel free to ask questions on Reddit (see link below) or open an issue here on Github.
 
